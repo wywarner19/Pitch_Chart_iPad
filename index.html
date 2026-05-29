@@ -5,59 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>JV Baseball Pitching Tracker</title>
     <style>
-        body {
+        /* Lock down body viewport to prevent messy iOS scrolling/bouncing backgrounds */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f4f6f9;
             color: #333;
-            margin: 0;
-            padding: 10px;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+            overflow: hidden;
         }
         
-        /* Fixed Action Header */
+        /* Master layout container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Solid top action bar that never moves or relies on guessed offsets */
         .header-bar {
-            position: sticky;
-            top: 0;
-            background: #f4f6f9;
-            padding: 10px 0;
+            background: white;
+            padding: 12px 20px;
             z-index: 100;
             border-bottom: 2px solid #cbd5e0;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 15px;
+            flex-shrink: 0; 
         }
         h2 {
             margin: 0;
             color: #1a365d;
-            font-size: 1.4rem;
+            font-size: 1.3rem;
         }
         .action-buttons {
             display: flex;
             gap: 10px;
         }
         .btn {
-            padding: 12px 20px;
-            font-size: 1rem;
+            padding: 10px 18px;
+            font-size: 0.95rem;
             font-weight: bold;
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         .btn-export { background-color: #3182ce; color: white; }
         .btn-clear { background-color: #e53e3e; color: white; }
 
-        /* Spreadsheet Table Layout */
+        /* Independent scrolling window for the spreadsheet grid */
         .table-container {
+            flex: 1;
+            overflow: auto; 
             background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-top: 10px;
-            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; /* Butter-smooth momentum scroll on iOS */
         }
         table {
             width: 100%;
@@ -65,17 +69,18 @@
             text-align: center;
         }
         
-        /* Sticky Column Headers */
+        /* Sticks completely flush against the top of the scrolling grid container */
         thead th {
             position: sticky;
-            top: 65px; /* Sits cleanly right under the header bar */
+            top: 0;
             background-color: #2b6cb0;
             color: white;
-            padding: 12px 6px;
+            padding: 14px 6px;
             font-size: 0.9rem;
             font-weight: 600;
             z-index: 90;
             border: 1px solid #4a5568;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.1); /* Adds clean depth as rows slide under */
         }
         
         tbody tr:nth-child(even) {
@@ -106,8 +111,8 @@
             border-radius: 6px;
         }
         .tgl-btn {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             font-size: 0.95rem;
             font-weight: bold;
             border: none;
@@ -148,7 +153,7 @@
 </head>
 <body>
 
-<div class="container">
+<div class="app-container">
     <div class="header-bar">
         <h2>🦅 Live Pitching Chart Grid</h2>
         <div class="action-buttons">
@@ -180,23 +185,17 @@
 <script>
     const TOTAL_ROWS = 50;
     const metrics = ['fps', 'count11', 'win11', 'a3p', 'leadoff', 'wewin'];
-    
-    // Core data structure to track selections programmatically
     let sessionData = {};
 
-    // Initialize blank data structure for all 50 rows
     for (let r = 1; r <= TOTAL_ROWS; r++) {
         sessionData[r] = { fps: '', count11: '', win11: '', a3p: '', leadoff: '', wewin: '' };
     }
 
-    // Build the sheet-style table interface dynamically
     const tbody = document.getElementById('grid-body');
     for (let i = 1; i <= TOTAL_ROWS; i++) {
         let tr = document.createElement('tr');
-        
         let htmlContent = `<td class="ab-cell">${i}</td>`;
         
-        // Generate interactive button cells for every single metric column
         metrics.forEach(metric => {
             htmlContent += `
                 <td>
@@ -208,7 +207,6 @@
             `;
         });
         
-        // Add text string input for the final column
         htmlContent += `
             <td>
                 <input type="text" id="res-${i}" class="result-input" placeholder="-" autocomplete="off" autocorrect="off" autocapitalize="off">
@@ -219,37 +217,31 @@
         tbody.appendChild(tr);
     }
 
-    // Handle 3-state logic: click active button resets to blank, click alternative switches state
     function handleToggle(row, metric, value) {
         const currentVal = sessionData[row][metric];
         const btnY = document.getElementById(`btn-${row}-${metric}-Y`);
         const btnN = document.getElementById(`btn-${row}-${metric}-N`);
         
-        // Reset classes
         btnY.classList.remove('active-y');
         btnN.classList.remove('active-n');
         
         if (currentVal === value) {
-            // Tapping an already selected choice clears it entirely back to blank
             sessionData[row][metric] = '';
         } else {
-            // Assign new selection and update colors
             sessionData[row][metric] = value;
             if (value === 'Y') btnY.classList.add('active-y');
             if (value === 'N') btnN.classList.add('active-n');
         }
     }
 
-    // Map internal selections cleanly to match paired sub-columns
     function exportExactCSV() {
         let csvContent = "Game - Date,,,,,,,,,,,,,,,,\n";
         csvContent += "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result\n";
         
         for (let i = 1; i <= TOTAL_ROWS; i++) {
             let rowLine = [];
-            rowLine.push(i); // Primary column item: AB#
+            rowLine.push(i);
             
-            // Loop through column states to populate pairs or leave entirely empty
             metrics.forEach(metric => {
                 const state = sessionData[i][metric];
                 if (state === 'Y') {
@@ -259,20 +251,17 @@
                     rowLine.push('N');
                     rowLine.push('Y');
                 } else {
-                    // Both paired cells are left empty to keep formulas correctly balanced
                     rowLine.push('');
                     rowLine.push('');
                 }
             });
             
-            // Get value from text field string directly
             const resultText = document.getElementById(`res-${i}`).value.trim();
             rowLine.push(resultText ? `"${resultText}"` : '');
             
             csvContent += rowLine.join(",") + "\n";
         }
 
-        // Native client side compilation and file download execution
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -283,7 +272,6 @@
         document.body.removeChild(link);
     }
 
-    // Full layout grid clear feature
     function clearGrid() {
         if (confirm("Are you sure you want to completely clear the current grid data?")) {
             for (let i = 1; i <= TOTAL_ROWS; i++) {
@@ -294,7 +282,7 @@
                 });
                 document.getElementById(`res-${i}`).value = '';
             }
-            window.scrollTo(0, 0);
+            document.querySelector('.table-container').scrollTo(0, 0);
         }
     }
 </script>
