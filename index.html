@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>JV Baseball Pitching Tracker</title>
+    <title>Baseball Pitch Chart </title>
     <style>
-        /* Lock down body viewport to prevent messy iOS scrolling/bouncing backgrounds */
+        /* Lock down body viewport to prevent messy iOS scrolling backgrounds */
         html, body {
             height: 100%;
             margin: 0;
@@ -23,12 +23,11 @@
             height: 100vh;
         }
         
-        /* Solid top action bar that never moves or relies on guessed offsets */
+        /* Solid top action bar */
         .header-bar {
             background: white;
             padding: 12px 20px;
             z-index: 100;
-            border-bottom: 2px solid #cbd5e0;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -56,12 +55,46 @@
         .btn-export { background-color: #3182ce; color: white; }
         .btn-clear { background-color: #e53e3e; color: white; }
 
+        /* Game Metadata Input Bar - iPad keyboard friendly */
+        .meta-bar {
+            background: #edf2f7;
+            padding: 10px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 2px solid #cbd5e0;
+            flex-shrink: 0;
+        }
+        .meta-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .meta-group label {
+            font-weight: bold;
+            color: #4a5568;
+            font-size: 0.9rem;
+        }
+        .meta-input {
+            padding: 8px 12px;
+            font-size: 16px; /* Prevents iOS auto-zoom */
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            background: white;
+            box-sizing: border-box;
+        }
+        .meta-input:focus {
+            border-color: #3182ce;
+            outline: none;
+        }
+
         /* Independent scrolling window for the spreadsheet grid */
         .table-container {
             flex: 1;
             overflow: auto; 
             background: white;
-            -webkit-overflow-scrolling: touch; /* Butter-smooth momentum scroll on iOS */
+            -webkit-overflow-scrolling: touch;
         }
         table {
             width: 100%;
@@ -69,7 +102,7 @@
             text-align: center;
         }
         
-        /* Sticks completely flush against the top of the scrolling grid container */
+        /* Sticks flush against the top of the scrolling window */
         thead th {
             position: sticky;
             top: 0;
@@ -80,7 +113,7 @@
             font-weight: 600;
             z-index: 90;
             border: 1px solid #4a5568;
-            box-shadow: 0 2px 3px rgba(0,0,0,0.1); /* Adds clean depth as rows slide under */
+            box-shadow: 0 2px 3px rgba(0,0,0,0.1);
         }
         
         tbody tr:nth-child(even) {
@@ -93,20 +126,49 @@
             padding: 6px 4px;
             border: 1px solid #e2e8f0;
             vertical-align: middle;
+            transition: border-color 0.15s ease;
         }
         
+        /* Visual Inning Separation Line Style */
+        tr.inning-break td {
+            border-bottom: 3px dashed #2d3748 !important;
+        }
+        
+        /* Compact At-Bat + Lineup Cell Layout */
         .ab-cell {
             font-weight: bold;
             color: #1a365d;
             font-size: 1.1rem;
-            width: 75px;
+            width: 85px;
             white-space: nowrap;
+        }
+        .ab-layout-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
         }
         .lineup-pos {
             font-size: 0.85rem;
             color: #718096;
             font-weight: normal;
-            margin-left: 2px;
+        }
+        .inning-toggle-btn {
+            background: #e2e8f0;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            cursor: pointer;
+            color: #718096;
+            font-weight: bold;
+            line-height: 1;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .inning-toggle-btn.active-break {
+            background-color: #2d3748 !important;
+            color: white !important;
         }
 
         /* Touch Button Groups inside Cells */
@@ -169,6 +231,21 @@
         </div>
     </div>
 
+    <div class="meta-bar">
+        <div class="meta-group">
+            <label for="game-date">Date:</label>
+            <input type="date" id="game-date" class="meta-input">
+        </div>
+        <div class="meta-group">
+            <label for="opponent">Opponent:</label>
+            <input type="text" id="opponent" class="meta-input" placeholder="Opponent Name" autocomplete="off">
+        </div>
+        <div class="meta-group">
+            <label for="pitcher-name">Pitcher:</label>
+            <input type="text" id="pitcher-name" class="meta-input" placeholder="Pitcher Name" autocomplete="off">
+        </div>
+    </div>
+
     <div class="table-container">
         <table>
             <thead>
@@ -194,17 +271,27 @@
     const metrics = ['fps', 'count11', 'win11', 'a3p', 'leadoff', 'wewin'];
     let sessionData = {};
 
+    // Initialize structured storage
     for (let r = 1; r <= TOTAL_ROWS; r++) {
-        sessionData[r] = { fps: '', count11: '', win11: '', a3p: '', leadoff: '', wewin: '' };
+        sessionData[r] = { fps: '', count11: '', win11: '', a3p: '', leadoff: '', wewin: '', inningBreak: false };
     }
 
     const tbody = document.getElementById('grid-body');
     for (let i = 1; i <= TOTAL_ROWS; i++) {
         let tr = document.createElement('tr');
+        tr.id = `row-${i}`;
         
-        // Calculate lineup order cycling 1 through 9
         const lineupNum = ((i - 1) % 9) + 1;
-        let htmlContent = `<td class="ab-cell">${i}<span class="lineup-pos">(${lineupNum})</span></td>`;
+        
+        // AB Cell holding Number, Lineup cycle, and the custom Inning Break toggle link
+        let htmlContent = `
+            <td class="ab-cell">
+                <div class="ab-layout-box">
+                    <span>${i} <span class="lineup-pos">(${lineupNum})</span></span>
+                    <button type="button" id="inn-btn-${i}" class="inning-toggle-btn" onclick="toggleInningBreak(${i})">⎼⎼</button>
+                </div>
+            </td>
+        `;
         
         metrics.forEach(metric => {
             htmlContent += `
@@ -227,6 +314,7 @@
         tbody.appendChild(tr);
     }
 
+    // Toggle 3-state buttons
     function handleToggle(row, metric, value) {
         const currentVal = sessionData[row][metric];
         const btnY = document.getElementById(`btn-${row}-${metric}-Y`);
@@ -244,8 +332,32 @@
         }
     }
 
+    // Handles drawing the dashed boundary line manually under any row
+    function toggleInningBreak(rowNum) {
+        const rowElement = document.getElementById(`row-${rowNum}`);
+        const lineButton = document.getElementById(`inn-btn-${rowNum}`);
+        
+        const isCurrentlyBreak = sessionData[rowNum].inningBreak;
+        
+        if (isCurrentlyBreak) {
+            sessionData[rowNum].inningBreak = false;
+            rowElement.classList.remove('inning-break');
+            lineButton.classList.remove('active-break');
+        } else {
+            sessionData[rowNum].inningBreak = true;
+            rowElement.classList.add('inning-break');
+            lineButton.classList.add('active-break');
+        }
+    }
+
+    // Compiles data cleanly and inserts top row metadata fields into the CSV
     function exportExactCSV() {
-        let csvContent = "Game - Date,,,,,,,,,,,,,,,,\n";
+        const metaDate = document.getElementById('game-date').value || '';
+        const metaOpponent = document.getElementById('opponent').value.trim() || '';
+        const metaPitcher = document.getElementById('pitcher-name').value.trim() || '';
+
+        // Formats Row 1 with clean labels and values so Excel picks them up perfectly
+        let csvContent = `Date,${metaDate},Opponent,${metaOpponent},Pitcher,${metaPitcher},,,,,,,,,,\n`;
         csvContent += "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result\n";
         
         for (let i = 1; i <= TOTAL_ROWS; i++) {
@@ -256,12 +368,12 @@
                 const state = sessionData[i][metric];
                 if (state === 'Y') {
                     rowLine.push('Y');
-                    rowLine.push('N');
+                    rowLine.push(''); 
                 } else if (state === 'N') {
+                    rowLine.push(''); 
                     rowLine.push('N');
-                    rowLine.push('Y');
                 } else {
-                    rowLine.push('');
+                    rowLine.push(''); 
                     rowLine.push('');
                 }
             });
@@ -282,15 +394,29 @@
         document.body.removeChild(link);
     }
 
+    // Full grid reset
     function clearGrid() {
-        if (confirm("Are you sure you want to completely clear the current grid data?")) {
+        if (confirm("Are you sure you want to completely clear the current grid data and setup details?")) {
+            // Reset metadata text inputs
+            document.getElementById('game-date').value = '';
+            document.getElementById('opponent').value = '';
+            document.getElementById('pitcher-name').value = '';
+
             for (let i = 1; i <= TOTAL_ROWS; i++) {
+                // Clear metric selections
                 metrics.forEach(metric => {
                     sessionData[i][metric] = '';
                     document.getElementById(`btn-${i}-${metric}-Y`).classList.remove('active-y');
                     document.getElementById(`btn-${i}-${metric}-N`).classList.remove('active-n');
                 });
+                
+                // Reset text inputs
                 document.getElementById(`res-${i}`).value = '';
+                
+                // Clear visual inning lines
+                sessionData[i].inningBreak = false;
+                document.getElementById(`row-${i}`).classList.remove('inning-break');
+                document.getElementById(`inn-btn-${i}`).classList.remove('active-break');
             }
             document.querySelector('.table-container').scrollTo(0, 0);
         }
