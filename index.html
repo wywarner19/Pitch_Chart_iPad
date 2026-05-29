@@ -3,280 +3,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Live Game Pitching Tracker</title>
+    <title>JV Baseball Pitching Tracker</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f4f6f9;
             color: #333;
             margin: 0;
-            padding: 20px;
+            padding: 10px;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
         }
-        h2 {
-            text-align: center;
-            color: #1a365d;
-        }
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        .metric-card {
-            background: white;
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            text-align: center;
-        }
-        .metric-title {
-            font-weight: bold;
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            color: #2d3748;
-        }
-        .toggle-btn {
-            width: 80%;
-            padding: 15px 0;
-            font-size: 1.2rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-y {
-            background-color: #48bb78;
-            color: white;
-        }
-        .btn-n {
-            background-color: #f56565;
-            color: white;
-        }
-        .input-card {
-            grid-column: span 2;
-        }
-        input[type="text"] {
-            width: 85%;
-            padding: 12px;
-            font-size: 1.1rem;
-            border: 2px solid #cbd5e0;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .action-bar {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        .action-btn {
-            flex: 1;
-            padding: 18px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        #add-ab-btn { background-color: #3182ce; color: white; }
-        #export-btn { background-color: #2b6cb0; color: white; }
-        #clear-btn { background-color: #a0aec0; color: white; flex: 0.5; }
         
+        /* Fixed Action Header */
+        .header-bar {
+            position: sticky;
+            top: 0;
+            background: #f4f6f9;
+            padding: 10px 0;
+            z-index: 100;
+            border-bottom: 2px solid #cbd5e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+        h2 {
+            margin: 0;
+            color: #1a365d;
+            font-size: 1.4rem;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn-export { background-color: #3182ce; color: white; }
+        .btn-clear { background-color: #e53e3e; color: white; }
+
+        /* Spreadsheet Table Layout */
         .table-container {
             background: white;
-            border-radius: 12px;
+            border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-top: 10px;
             overflow-x: auto;
-            padding: 10px;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             text-align: center;
         }
-        th, td {
-            padding: 10px;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.95rem;
+        
+        /* Sticky Column Headers */
+        thead th {
+            position: sticky;
+            top: 65px; /* Sits cleanly right under the header bar */
+            background-color: #2b6cb0;
+            color: white;
+            padding: 12px 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 90;
+            border: 1px solid #4a5568;
         }
-        th { background-color: #edf2f7; color: #4a5568; }
-        .current-status {
-            text-align: center;
-            font-size: 1.3rem;
+        
+        tbody tr:nth-child(even) {
+            background-color: #f7fafc;
+        }
+        tbody tr:hover {
+            background-color: #edf2f7;
+        }
+        td {
+            padding: 6px 4px;
+            border: 1px solid #e2e8f0;
+            vertical-align: middle;
+        }
+        
+        .ab-cell {
             font-weight: bold;
-            color: #2b6cb0;
-            margin-bottom: 15px;
+            color: #4a5568;
+            font-size: 1.1rem;
+            width: 45px;
+        }
+
+        /* Touch Button Groups inside Cells */
+        .tgl-group {
+            display: inline-flex;
+            gap: 4px;
+            background: #edf2f7;
+            padding: 3px;
+            border-radius: 6px;
+        }
+        .tgl-btn {
+            width: 36px;
+            height: 36px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border: none;
+            background: #fff;
+            color: #718096;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        
+        /* Active States */
+        .tgl-btn.active-y {
+            background-color: #48bb78 !important;
+            color: white !important;
+        }
+        .tgl-btn.active-n {
+            background-color: #f56565 !important;
+            color: white !important;
+        }
+
+        /* Keyboard-safe inputs to prevent browser zooming */
+        .result-input {
+            width: 90%;
+            padding: 8px;
+            font-size: 16px; 
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .result-input:focus {
+            border-color: #3182ce;
+            outline: none;
+            background-color: #ffffff;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>⚾ Live Game Data Collector</h2>
-    <div id="ab-status" class="current-status">Current Tracked At-Bat: #1</div>
-
-    <div class="dashboard-grid">
-        <div class="metric-card">
-            <div class="metric-title">1st Pitch Strike</div>
-            <button id="fps" class="toggle-btn btn-y" onclick="toggleMetric('fps')">Y</button>
+    <div class="header-bar">
+        <h2>🦅 Live Pitching Chart Grid</h2>
+        <div class="action-buttons">
+            <button class="btn btn-export" onclick="exportExactCSV()">📥 Export Sheet CSV</button>
+            <button class="btn btn-clear" onclick="clearGrid()">Clear All</button>
         </div>
-        <div class="metric-card">
-            <div class="metric-title">1-1 Count</div>
-            <button id="count11" class="toggle-btn btn-y" onclick="toggleMetric('count11')">Y</button>
-        </div>
-        <div class="metric-card">
-            <div class="metric-title">1-1 Win</div>
-            <button id="win11" class="toggle-btn btn-y" onclick="toggleMetric('win11')">Y</button>
-        </div>
-        <div class="metric-card">
-            <div class="metric-title">A3P</div>
-            <button id="a3p" class="toggle-btn btn-y" onclick="toggleMetric('a3p')">Y</button>
-        </div>
-        <div class="metric-card">
-            <div class="metric-title">Leadoff Out</div>
-            <button id="leadoff" class="toggle-btn btn-y" onclick="toggleMetric('leadoff')">Y</button>
-        </div>
-        <div class="metric-card">
-            <div class="metric-title">We Win</div>
-            <button id="wewin" class="toggle-btn btn-y" onclick="toggleMetric('wewin')">Y</button>
-        </div>
-        <div class="metric-card input-card">
-            <div class="metric-title">At-Bat Result</div>
-            <input type="text" id="result" placeholder="e.g., BB, Frontwards K, 1B" autocomplete="off">
-        </div>
-    </div>
-
-    <div class="action-bar">
-        <button id="add-ab-btn" class="action-btn" onclick="addAtBat()">✅ Submit At-Bat</button>
-        <button id="export-btn" class="action-btn" onclick="exportToCSV()">📥 Export Exact Excel CSV</button>
-        <button id="clear-btn" class="action-btn" onclick="resetGame()">Clear</button>
     </div>
 
     <div class="table-container">
-        <h3>Current Game Log</h3>
-        <table id="log-table">
+        <table>
             <thead>
                 <tr>
-                    <th>AB#</th><th>FPS</th><th>1-1 Count</th><th>1-1 Win</th><th>A3P</th><th>Leadoff Out</th><th>We Win</th><th>Result</th>
+                    <th>AB#</th>
+                    <th>1st Pitch Strike</th>
+                    <th>1-1 Count</th>
+                    <th>1-1 Win</th>
+                    <th>A3P</th>
+                    <th>Leadoff Out</th>
+                    <th>We Win</th>
+                    <th>At-Bat Result</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="grid-body">
                 </tbody>
         </table>
     </div>
 </div>
 
 <script>
-    let gameData = [];
-    let currentAB = 1;
+    const TOTAL_ROWS = 50;
+    const metrics = ['fps', 'count11', 'win11', 'a3p', 'leadoff', 'wewin'];
     
-    // Default form states
-    let currentMetrics = {
-        fps: true,
-        count11: true,
-        win11: true,
-        a3p: true,
-        leadoff: true,
-        wewin: true
-    };
+    // Core data structure to track selections programmatically
+    let sessionData = {};
 
-    function toggleMetric(id) {
-        const btn = document.getElementById(id);
-        currentMetrics[id] = !currentMetrics[id];
-        if (currentMetrics[id]) {
-            btn.innerText = "Y";
-            btn.className = "toggle-btn btn-y";
-        } else {
-            btn.innerText = "N";
-            btn.className = "toggle-btn btn-n";
-        }
+    // Initialize blank data structure for all 50 rows
+    for (let r = 1; r <= TOTAL_ROWS; r++) {
+        sessionData[r] = { fps: '', count11: '', win11: '', a3p: '', leadoff: '', wewin: '' };
     }
 
-    function addAtBat() {
-        const resultVal = document.getElementById('result').value.trim() || "-";
+    // Build the sheet-style table interface dynamically
+    const tbody = document.getElementById('grid-body');
+    for (let i = 1; i <= TOTAL_ROWS; i++) {
+        let tr = document.createElement('tr');
         
-        // Push a shallow copy of current values
-        gameData.push({
-            ab: currentAB,
-            ...currentMetrics,
-            result: resultVal
-        });
-
-        updateTable();
+        let htmlContent = `<td class="ab-cell">${i}</td>`;
         
-        // Reset controls for the next at-bat
-        currentAB++;
-        document.getElementById('ab-status').innerText = `Current Tracked At-Bat: #${currentAB}`;
-        document.getElementById('result').value = "";
-    }
-
-    function updateTable() {
-        const tbody = document.getElementById('log-table').getElementsByTagName('tbody')[0];
-        tbody.innerHTML = "";
-        
-        gameData.slice().reverse().forEach(row => {
-            let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><b>${row.ab}</b></td>
-                <td>${row.fps ? 'Y' : 'N'}</td>
-                <td>${row.count11 ? 'Y' : 'N'}</td>
-                <td>${row.win11 ? 'Y' : 'N'}</td>
-                <td>${row.a3p ? 'Y' : 'N'}</td>
-                <td>${row.leadoff ? 'Y' : 'N'}</td>
-                <td>${row.wewin ? 'Y' : 'N'}</td>
-                <td><u>${row.result}</u></td>
+        // Generate interactive button cells for every single metric column
+        metrics.forEach(metric => {
+            htmlContent += `
+                <td>
+                    <div class="tgl-group">
+                        <button type="button" id="btn-${i}-${metric}-Y" class="tgl-btn" onclick="handleToggle(${i}, '${metric}', 'Y')">Y</button>
+                        <button type="button" id="btn-${i}-${metric}-N" class="tgl-btn" onclick="handleToggle(${i}, '${metric}', 'N')">N</button>
+                    </div>
+                </td>
             `;
-            tbody.appendChild(tr);
         });
+        
+        // Add text string input for the final column
+        htmlContent += `
+            <td>
+                <input type="text" id="res-${i}" class="result-input" placeholder="-" autocomplete="off" autocorrect="off" autocapitalize="off">
+            </td>
+        `;
+        
+        tr.innerHTML = htmlContent;
+        tbody.appendChild(tr);
     }
 
-    function exportToCSV() {
-        if (gameData.length === 0) {
-            alert("No data recorded yet!");
-            return;
+    // Handle 3-state logic: click active button resets to blank, click alternative switches state
+    function handleToggle(row, metric, value) {
+        const currentVal = sessionData[row][metric];
+        const btnY = document.getElementById(`btn-${row}-${metric}-Y`);
+        const btnN = document.getElementById(`btn-${row}-${metric}-N`);
+        
+        // Reset classes
+        btnY.classList.remove('active-y');
+        btnN.classList.remove('active-n');
+        
+        if (currentVal === value) {
+            // Tapping an already selected choice clears it entirely back to blank
+            sessionData[row][metric] = '';
+        } else {
+            // Assign new selection and update colors
+            sessionData[row][metric] = value;
+            if (value === 'Y') btnY.classList.add('active-y');
+            if (value === 'N') btnN.classList.add('active-n');
+        }
+    }
+
+    // Map internal selections cleanly to match paired sub-columns
+    function exportExactCSV() {
+        let csvContent = "Game - Date,,,,,,,,,,,,,,,,\n";
+        csvContent += "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result\n";
+        
+        for (let i = 1; i <= TOTAL_ROWS; i++) {
+            let rowLine = [];
+            rowLine.push(i); // Primary column item: AB#
+            
+            // Loop through column states to populate pairs or leave entirely empty
+            metrics.forEach(metric => {
+                const state = sessionData[i][metric];
+                if (state === 'Y') {
+                    rowLine.push('Y');
+                    rowLine.push('N');
+                } else if (state === 'N') {
+                    rowLine.push('N');
+                    rowLine.push('Y');
+                } else {
+                    // Both paired cells are left empty to keep formulas correctly balanced
+                    rowLine.push('');
+                    rowLine.push('');
+                }
+            });
+            
+            // Get value from text field string directly
+            const resultText = document.getElementById(`res-${i}`).value.trim();
+            rowLine.push(resultText ? `"${resultText}"` : '');
+            
+            csvContent += rowLine.join(",") + "\n";
         }
 
-        // Structure matches the double comma column expansion:
-        // AB#, FPS(Y,N), 1-1 Count(Y,N), 1-1 Win(Y,N), A3P(Y,N), Leadoff Out(Y,N), We Win(Y,N), Result
-        let csvContent = "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result\n";
-        
-        gameData.forEach(row => {
-            let line = [
-                row.ab,
-                row.fps ? "Y,N" : "N,Y",
-                row.count11 ? "Y,N" : "N,Y",
-                row.win11 ? "Y,N" : "N,Y",
-                row.a3p ? "Y,N" : "N,Y",
-                row.leadoff ? "Y,N" : "N,Y",
-                row.wewin ? "Y,N" : "N,Y",
-                `"${row.result}"`
-            ].join(",");
-            csvContent += line + "\n";
-        });
-
-        // Safe client-side file generation for iOS Safari
+        // Native client side compilation and file download execution
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `game_export_ab_${currentAB-1}.csv`);
+        link.setAttribute("download", `game_chart_export.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    function resetGame() {
-        if (confirm("Clear all recorded at-bats for this game?")) {
-            gameData = [];
-            currentAB = 1;
-            document.getElementById('ab-status').innerText = `Current Tracked At-Bat: #${currentAB}`;
-            document.getElementById('result').value = "";
-            updateTable();
+    // Full layout grid clear feature
+    function clearGrid() {
+        if (confirm("Are you sure you want to completely clear the current grid data?")) {
+            for (let i = 1; i <= TOTAL_ROWS; i++) {
+                metrics.forEach(metric => {
+                    sessionData[i][metric] = '';
+                    document.getElementById(`btn-${i}-${metric}-Y`).classList.remove('active-y');
+                    document.getElementById(`btn-${i}-${metric}-N`).classList.remove('active-n');
+                });
+                document.getElementById(`res-${i}`).value = '';
+            }
+            window.scrollTo(0, 0);
         }
     }
 </script>
