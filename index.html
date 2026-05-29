@@ -52,7 +52,7 @@
             cursor: pointer;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .btn-export { background-color: #3182ce; color: white; }
+        .btn-export { background-color: #48bb78; color: white; }
         .btn-clear { background-color: #e53e3e; color: white; }
 
         /* Game Metadata Input Bar - iPad keyboard friendly */
@@ -230,7 +230,7 @@
     <div class="header-bar">
         <h2>🦅 Live Pitching Chart Grid</h2>
         <div class="action-buttons">
-            <button class="btn btn-export" onclick="exportExactCSV()">📥 Export Sheet CSV</button>
+            <button class="btn btn-export" onclick="exportFormattedExcel()">📥 Export Formatted Excel</button>
             <button class="btn btn-clear" onclick="clearGrid()">Clear All</button>
         </div>
     </div>
@@ -238,15 +238,15 @@
     <div class="meta-bar">
         <div class="meta-group">
             <label for="game-date">Date:</label>
-            <input type="date" id="game-date" class="meta-input">
+            <input type="date" id="game-date" class="meta-input" oninput="saveState()">
         </div>
         <div class="meta-group">
             <label for="opponent">Opponent:</label>
-            <input type="text" id="opponent" class="meta-input" placeholder="Opponent Name" autocomplete="off">
+            <input type="text" id="opponent" class="meta-input" placeholder="Opponent Name" autocomplete="off" oninput="saveState()">
         </div>
         <div class="meta-group">
             <label for="pitcher-name">Starter:</label>
-            <input type="text" id="pitcher-name" class="meta-input" placeholder="Starting Pitcher" autocomplete="off">
+            <input type="text" id="pitcher-name" class="meta-input" placeholder="Starting Pitcher" autocomplete="off" oninput="saveState()">
         </div>
     </div>
 
@@ -276,7 +276,7 @@
     const metrics = ['fps', 'count11', 'win11', 'a3p', 'leadoff', 'wewin'];
     let sessionData = {};
 
-    // Initialize structured storage
+    // Initialize structured storage format
     for (let r = 1; r <= TOTAL_ROWS; r++) {
         sessionData[r] = { fps: '', count11: '', win11: '', a3p: '', leadoff: '', wewin: '', inningBreak: false };
     }
@@ -285,7 +285,6 @@
     for (let i = 1; i <= TOTAL_ROWS; i++) {
         let tr = document.createElement('tr');
         tr.id = `row-${i}`;
-        
         const lineupNum = ((i - 1) % 9) + 1;
         
         let htmlContent = `
@@ -308,25 +307,71 @@
             `;
         });
         
-        // At-Bat Result Input
         htmlContent += `
-            <td>
-                <input type="text" id="res-${i}" class="result-input" placeholder="-" autocomplete="off" autocorrect="off" autocapitalize="off">
-            </td>
-        `;
-
-        // Pitcher Input (Only used to register modifications/changes)
-        htmlContent += `
-            <td>
-                <input type="text" id="pitcher-change-${i}" class="pitcher-input" placeholder="⤷" autocomplete="off" autocorrect="off" autocapitalize="off">
-            </td>
+            <td><input type="text" id="res-${i}" class="result-input" placeholder="-" autocomplete="off" autocorrect="off" autocapitalize="off" oninput="saveState()"></td>
+            <td><input type="text" id="pitcher-change-${i}" class="pitcher-input" placeholder="⤷" autocomplete="off" autocorrect="off" autocapitalize="off" oninput="saveState()"></td>
         `;
         
         tr.innerHTML = htmlContent;
         tbody.appendChild(tr);
     }
 
-    // Toggle 3-state buttons
+    // Pack structured values and text node targets into localStorage binary string
+    function saveState() {
+        const dataToSave = {
+            metaDate: document.getElementById('game-date').value,
+            metaOpponent: document.getElementById('opponent').value,
+            metaStarter: document.getElementById('pitcher-name').value,
+            sessionData: sessionData,
+            results: {},
+            pitcherChanges: {}
+        };
+        
+        for (let i = 1; i <= TOTAL_ROWS; i++) {
+            dataToSave.results[i] = document.getElementById(`res-${i}`).value;
+            dataToSave.pitcherChanges[i] = document.getElementById(`pitcher-change-${i}`).value;
+        }
+        
+        localStorage.setItem('pitchingTrackerState', JSON.stringify(dataToSave));
+    }
+
+    // Extract storage back cleanly, drawing correct highlight styles onto the interface markup
+    function loadState() {
+        const saved = localStorage.getItem('pitchingTrackerState');
+        if (!saved) return;
+        
+        try {
+            const parsed = JSON.parse(saved);
+            
+            document.getElementById('game-date').value = parsed.metaDate || '';
+            document.getElementById('opponent').value = parsed.metaOpponent || '';
+            document.getElementById('pitcher-name').value = parsed.metaStarter || '';
+            
+            sessionData = parsed.sessionData || sessionData;
+            
+            for (let i = 1; i <= TOTAL_ROWS; i++) {
+                metrics.forEach(metric => {
+                    const val = sessionData[i][metric];
+                    const btnY = document.getElementById(`btn-${i}-${metric}-Y`);
+                    const btnN = document.getElementById(`btn-${i}-${metric}-N`);
+                    
+                    if (val === 'Y') btnY.classList.add('active-y');
+                    if (val === 'N') btnN.classList.add('active-n');
+                });
+                
+                if (sessionData[i].inningBreak) {
+                    document.getElementById(`row-${i}`).classList.add('inning-break');
+                    document.getElementById(`inn-btn-${i}`).classList.add('active-break');
+                }
+                
+                document.getElementById(`res-${i}`).value = parsed.results[i] || '';
+                document.getElementById(`pitcher-change-${i}`).value = parsed.pitcherChanges[i] || '';
+            }
+        } catch (e) {
+            console.error("Error reading saved tracking state data:", e);
+        }
+    }
+
     function handleToggle(row, metric, value) {
         const currentVal = sessionData[row][metric];
         const btnY = document.getElementById(`btn-${row}-${metric}-Y`);
@@ -342,9 +387,9 @@
             if (value === 'Y') btnY.classList.add('active-y');
             if (value === 'N') btnN.classList.add('active-n');
         }
+        saveState();
     }
 
-    // Handles drawing the dashed boundary line manually under any row
     function toggleInningBreak(rowNum) {
         const rowElement = document.getElementById(`row-${rowNum}`);
         const lineButton = document.getElementById(`inn-btn-${rowNum}`);
@@ -359,66 +404,78 @@
             rowElement.classList.add('inning-break');
             lineButton.classList.add('active-break');
         }
+        saveState();
     }
 
-    // Compiles data and tracks row-level pitching changes sequentially
-    function exportExactCSV() {
+    function exportFormattedExcel() {
         const metaDate = document.getElementById('game-date').value || '';
         const metaOpponent = document.getElementById('opponent').value.trim() || '';
         const metaStarter = document.getElementById('pitcher-name').value.trim() || 'Unknown Pitcher';
 
-        // Base header setup
-        let csvContent = `Date,${metaDate},Opponent,${metaOpponent},Global Starter,${metaStarter},,,,,,,,,,\n`;
-        csvContent += "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result,Pitcher Name\n";
-        
-        // Tracker placeholder that rolls down row-by-row
         let activePitcher = metaStarter;
 
+        let xlsXml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">`;
+        xlsXml += `<head><meta charset="utf-8"></head><body>`;
+        xlsXml += `<table border="1" style="border-collapse:collapse; font-family: Calibri, sans-serif;">`;
+        
+        xlsXml += `<tr style="height:24px;">
+            <td style="font-weight:bold; background-color:#edf2f7;">Date</td><td>${metaDate}</td>
+            <td style="font-weight:bold; background-color:#edf2f7;">Opponent</td><td>${metaOpponent}</td>
+            <td style="font-weight:bold; background-color:#edf2f7;">Global Starter</td><td>${metaStarter}</td>
+            <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>`;
+        
+        xlsXml += `<tr style="background-color:#2b6cb0; color:white; font-weight:bold; text-align:center; height:26px;">
+            <td>AB#</td><td>FPS</td><td></td><td>1-1 Count</td><td></td><td>1-1 Win</td><td></td><td>A3P</td><td></td><td>Leadoff Out</td><td></td><td>We Win</td><td></td><td>Result</td><td>Pitcher Name</td>
+        </tr>`;
+        
         for (let i = 1; i <= TOTAL_ROWS; i++) {
-            let rowLine = [];
-            rowLine.push(i);
+            let cellBorderBase = sessionData[i].inningBreak ? "border-bottom: 2px dashed #000000;" : "";
+            
+            xlsXml += `<tr style="height:20px;">`;
+            xlsXml += `<td style="${cellBorderBase} text-align:center; font-weight:bold;">${i}</td>`;
             
             metrics.forEach(metric => {
                 const state = sessionData[i][metric];
                 if (state === 'Y') {
-                    rowLine.push('Y');
-                    rowLine.push(''); 
+                    xlsXml += `<td style="${cellBorderBase} background-color:#C6EFCE; color:#006100; text-align:center; font-weight:bold;">Y</td>`;
+                    xlsXml += `<td style="${cellBorderBase}"></td>`;
                 } else if (state === 'N') {
-                    rowLine.push(''); 
-                    rowLine.push('N');
+                    xlsXml += `<td style="${cellBorderBase}"></td>`;
+                    xlsXml += `<td style="${cellBorderBase} background-color:#FFC7CE; color:#9C0006; text-align:center; font-weight:bold;">N</td>`;
                 } else {
-                    rowLine.push(''); 
-                    rowLine.push('');
+                    xlsXml += `<td style="${cellBorderBase}"></td><td style="${cellBorderBase}"></td>`;
                 }
             });
             
             const resultText = document.getElementById(`res-${i}`).value.trim();
-            rowLine.push(resultText ? `"${resultText}"` : '');
+            xlsXml += `<td style="${cellBorderBase} text-align:center;">${resultText}</td>`;
             
-            // Checking for a mid-game relief switch entry
             const pitchChangeInput = document.getElementById(`pitcher-change-${i}`).value.trim();
             if (pitchChangeInput !== '') {
-                activePitcher = pitchChangeInput; // Shift tracking focus to the reliever
+                activePitcher = pitchChangeInput;
             }
-            
-            rowLine.push(`"${activePitcher}"`); // Safely appends active pitcher to the row column
-            
-            csvContent += rowLine.join(",") + "\n";
+            xlsXml += `<td style="${cellBorderBase} text-align:center;">${activePitcher}</td>`;
+            xlsXml += `</tr>`;
         }
+        
+        xlsXml += `</table></body></html>`;
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([xlsXml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `game_chart_export.csv`);
+        link.setAttribute("download", `game_chart_formatted.xls`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    // Full grid reset
     function clearGrid() {
-        if (confirm("Are you sure you want to completely clear the current grid data and setup details?")) {
+        if (confirm("Are you sure you want to completely clear current grid entries? This resets the background saved game file completely.")) {
+            // Remove local storage snapshot
+            localStorage.removeItem('pitchingTrackerState');
+
             document.getElementById('game-date').value = '';
             document.getElementById('opponent').value = '';
             document.getElementById('pitcher-name').value = '';
@@ -429,10 +486,8 @@
                     document.getElementById(`btn-${i}-${metric}-Y`).classList.remove('active-y');
                     document.getElementById(`btn-${i}-${metric}-N`).classList.remove('active-n');
                 });
-                
                 document.getElementById(`res-${i}`).value = '';
                 document.getElementById(`pitcher-change-${i}`).value = '';
-                
                 sessionData[i].inningBreak = false;
                 document.getElementById(`row-${i}`).classList.remove('inning-break');
                 document.getElementById(`inn-btn-${i}`).classList.remove('active-break');
@@ -440,6 +495,9 @@
             document.querySelector('.table-container').scrollTo(0, 0);
         }
     }
+
+    // Auto-load state on initialization
+    window.onload = loadState;
 </script>
 
 </body>
