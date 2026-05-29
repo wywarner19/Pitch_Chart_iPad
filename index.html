@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Live Game Pitching Tracker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h2 {
+            text-align: center;
+            color: #1a365d;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .metric-title {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: #2d3748;
+        }
+        .toggle-btn {
+            width: 80%;
+            padding: 15px 0;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-y {
+            background-color: #48bb78;
+            color: white;
+        }
+        .btn-n {
+            background-color: #f56565;
+            color: white;
+        }
+        .input-card {
+            grid-column: span 2;
+        }
+        input[type="text"] {
+            width: 85%;
+            padding: 12px;
+            font-size: 1.1rem;
+            border: 2px solid #cbd5e0;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .action-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .action-btn {
+            flex: 1;
+            padding: 18px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #add-ab-btn { background-color: #3182ce; color: white; }
+        #export-btn { background-color: #2b6cb0; color: white; }
+        #clear-btn { background-color: #a0aec0; color: white; flex: 0.5; }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            overflow-x: auto;
+            padding: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+        th { background-color: #edf2f7; color: #4a5568; }
+        .current-status {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #2b6cb0;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚾ Live Game Data Collector</h2>
+    <div id="ab-status" class="current-status">Current Tracked At-Bat: #1</div>
+
+    <div class="dashboard-grid">
+        <div class="metric-card">
+            <div class="metric-title">1st Pitch Strike</div>
+            <button id="fps" class="toggle-btn btn-y" onclick="toggleMetric('fps')">Y</button>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">1-1 Count</div>
+            <button id="count11" class="toggle-btn btn-y" onclick="toggleMetric('count11')">Y</button>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">1-1 Win</div>
+            <button id="win11" class="toggle-btn btn-y" onclick="toggleMetric('win11')">Y</button>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">A3P</div>
+            <button id="a3p" class="toggle-btn btn-y" onclick="toggleMetric('a3p')">Y</button>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">Leadoff Out</div>
+            <button id="leadoff" class="toggle-btn btn-y" onclick="toggleMetric('leadoff')">Y</button>
+        </div>
+        <div class="metric-card">
+            <div class="metric-title">We Win</div>
+            <button id="wewin" class="toggle-btn btn-y" onclick="toggleMetric('wewin')">Y</button>
+        </div>
+        <div class="metric-card input-card">
+            <div class="metric-title">At-Bat Result</div>
+            <input type="text" id="result" placeholder="e.g., BB, Frontwards K, 1B" autocomplete="off">
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button id="add-ab-btn" class="action-btn" onclick="addAtBat()">✅ Submit At-Bat</button>
+        <button id="export-btn" class="action-btn" onclick="exportToCSV()">📥 Export Exact Excel CSV</button>
+        <button id="clear-btn" class="action-btn" onclick="resetGame()">Clear</button>
+    </div>
+
+    <div class="table-container">
+        <h3>Current Game Log</h3>
+        <table id="log-table">
+            <thead>
+                <tr>
+                    <th>AB#</th><th>FPS</th><th>1-1 Count</th><th>1-1 Win</th><th>A3P</th><th>Leadoff Out</th><th>We Win</th><th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let gameData = [];
+    let currentAB = 1;
+    
+    // Default form states
+    let currentMetrics = {
+        fps: true,
+        count11: true,
+        win11: true,
+        a3p: true,
+        leadoff: true,
+        wewin: true
+    };
+
+    function toggleMetric(id) {
+        const btn = document.getElementById(id);
+        currentMetrics[id] = !currentMetrics[id];
+        if (currentMetrics[id]) {
+            btn.innerText = "Y";
+            btn.className = "toggle-btn btn-y";
+        } else {
+            btn.innerText = "N";
+            btn.className = "toggle-btn btn-n";
+        }
+    }
+
+    function addAtBat() {
+        const resultVal = document.getElementById('result').value.trim() || "-";
+        
+        // Push a shallow copy of current values
+        gameData.push({
+            ab: currentAB,
+            ...currentMetrics,
+            result: resultVal
+        });
+
+        updateTable();
+        
+        // Reset controls for the next at-bat
+        currentAB++;
+        document.getElementById('ab-status').innerText = `Current Tracked At-Bat: #${currentAB}`;
+        document.getElementById('result').value = "";
+    }
+
+    function updateTable() {
+        const tbody = document.getElementById('log-table').getElementsByTagName('tbody')[0];
+        tbody.innerHTML = "";
+        
+        gameData.slice().reverse().forEach(row => {
+            let tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>${row.ab}</b></td>
+                <td>${row.fps ? 'Y' : 'N'}</td>
+                <td>${row.count11 ? 'Y' : 'N'}</td>
+                <td>${row.win11 ? 'Y' : 'N'}</td>
+                <td>${row.a3p ? 'Y' : 'N'}</td>
+                <td>${row.leadoff ? 'Y' : 'N'}</td>
+                <td>${row.wewin ? 'Y' : 'N'}</td>
+                <td><u>${row.result}</u></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function exportToCSV() {
+        if (gameData.length === 0) {
+            alert("No data recorded yet!");
+            return;
+        }
+
+        // Structure matches the double comma column expansion:
+        // AB#, FPS(Y,N), 1-1 Count(Y,N), 1-1 Win(Y,N), A3P(Y,N), Leadoff Out(Y,N), We Win(Y,N), Result
+        let csvContent = "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result\n";
+        
+        gameData.forEach(row => {
+            let line = [
+                row.ab,
+                row.fps ? "Y,N" : "N,Y",
+                row.count11 ? "Y,N" : "N,Y",
+                row.win11 ? "Y,N" : "N,Y",
+                row.a3p ? "Y,N" : "N,Y",
+                row.leadoff ? "Y,N" : "N,Y",
+                row.wewin ? "Y,N" : "N,Y",
+                `"${row.result}"`
+            ].join(",");
+            csvContent += line + "\n";
+        });
+
+        // Safe client-side file generation for iOS Safari
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `game_export_ab_${currentAB-1}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function resetGame() {
+        if (confirm("Clear all recorded at-bats for this game?")) {
+            gameData = [];
+            currentAB = 1;
+            document.getElementById('ab-status').innerText = `Current Tracked At-Bat: #${currentAB}`;
+            document.getElementById('result').value = "";
+            updateTable();
+        }
+    }
+</script>
+
+</body>
+</html>
