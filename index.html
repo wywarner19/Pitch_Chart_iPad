@@ -97,9 +97,16 @@
         
         .ab-cell {
             font-weight: bold;
-            color: #4a5568;
+            color: #1a365d;
             font-size: 1.1rem;
-            width: 45px;
+            width: 75px;
+            white-space: nowrap;
+        }
+        .lineup-pos {
+            font-size: 0.85rem;
+            color: #718096;
+            font-weight: normal;
+            margin-left: 2px;
         }
 
         /* Touch Button Groups inside Cells */
@@ -166,7 +173,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>AB#</th>
+                    <th>AB# (Lineup)</th>
                     <th>1st Pitch Strike</th>
                     <th>1-1 Count</th>
                     <th>1-1 Win</th>
@@ -194,7 +201,10 @@
     const tbody = document.getElementById('grid-body');
     for (let i = 1; i <= TOTAL_ROWS; i++) {
         let tr = document.createElement('tr');
-        let htmlContent = `<td class="ab-cell">${i}</td>`;
+        
+        // Calculate lineup order cycling 1 through 9
+        const lineupNum = ((i - 1) % 9) + 1;
+        let htmlContent = `<td class="ab-cell">${i}<span class="lineup-pos">(${lineupNum})</span></td>`;
         
         metrics.forEach(metric => {
             htmlContent += `
