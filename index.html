@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Baseball Pitch Chart </title>
+    <title>JV Baseball Pitching Tracker</title>
     <style>
         /* Lock down body viewport to prevent messy iOS scrolling backgrounds */
         html, body {
@@ -204,7 +204,7 @@
         }
 
         /* Keyboard-safe inputs to prevent browser zooming */
-        .result-input {
+        .result-input, .pitcher-input {
             width: 90%;
             padding: 8px;
             font-size: 16px; 
@@ -213,10 +213,14 @@
             box-sizing: border-box;
             text-align: center;
         }
-        .result-input:focus {
+        .result-input:focus, .pitcher-input:focus {
             border-color: #3182ce;
             outline: none;
             background-color: #ffffff;
+        }
+        .pitcher-input {
+            background-color: #fdfdfd;
+            font-weight: 500;
         }
     </style>
 </head>
@@ -241,8 +245,8 @@
             <input type="text" id="opponent" class="meta-input" placeholder="Opponent Name" autocomplete="off">
         </div>
         <div class="meta-group">
-            <label for="pitcher-name">Pitcher:</label>
-            <input type="text" id="pitcher-name" class="meta-input" placeholder="Pitcher Name" autocomplete="off">
+            <label for="pitcher-name">Starter:</label>
+            <input type="text" id="pitcher-name" class="meta-input" placeholder="Starting Pitcher" autocomplete="off">
         </div>
     </div>
 
@@ -258,6 +262,7 @@
                     <th>Leadoff Out</th>
                     <th>We Win</th>
                     <th>At-Bat Result</th>
+                    <th>Current Pitcher</th>
                 </tr>
             </thead>
             <tbody id="grid-body">
@@ -283,7 +288,6 @@
         
         const lineupNum = ((i - 1) % 9) + 1;
         
-        // AB Cell holding Number, Lineup cycle, and the custom Inning Break toggle link
         let htmlContent = `
             <td class="ab-cell">
                 <div class="ab-layout-box">
@@ -304,9 +308,17 @@
             `;
         });
         
+        // At-Bat Result Input
         htmlContent += `
             <td>
                 <input type="text" id="res-${i}" class="result-input" placeholder="-" autocomplete="off" autocorrect="off" autocapitalize="off">
+            </td>
+        `;
+
+        // Pitcher Input (Only used to register modifications/changes)
+        htmlContent += `
+            <td>
+                <input type="text" id="pitcher-change-${i}" class="pitcher-input" placeholder="⤷" autocomplete="off" autocorrect="off" autocapitalize="off">
             </td>
         `;
         
@@ -336,7 +348,6 @@
     function toggleInningBreak(rowNum) {
         const rowElement = document.getElementById(`row-${rowNum}`);
         const lineButton = document.getElementById(`inn-btn-${rowNum}`);
-        
         const isCurrentlyBreak = sessionData[rowNum].inningBreak;
         
         if (isCurrentlyBreak) {
@@ -350,16 +361,19 @@
         }
     }
 
-    // Compiles data cleanly and inserts top row metadata fields into the CSV
+    // Compiles data and tracks row-level pitching changes sequentially
     function exportExactCSV() {
         const metaDate = document.getElementById('game-date').value || '';
         const metaOpponent = document.getElementById('opponent').value.trim() || '';
-        const metaPitcher = document.getElementById('pitcher-name').value.trim() || '';
+        const metaStarter = document.getElementById('pitcher-name').value.trim() || 'Unknown Pitcher';
 
-        // Formats Row 1 with clean labels and values so Excel picks them up perfectly
-        let csvContent = `Date,${metaDate},Opponent,${metaOpponent},Pitcher,${metaPitcher},,,,,,,,,,\n`;
-        csvContent += "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result\n";
+        // Base header setup
+        let csvContent = `Date,${metaDate},Opponent,${metaOpponent},Global Starter,${metaStarter},,,,,,,,,,\n`;
+        csvContent += "AB#,FPS,,1-1 Count,,1-1 Win,,A3P,,Leadoff Out,,We Win,,Result,Pitcher Name\n";
         
+        // Tracker placeholder that rolls down row-by-row
+        let activePitcher = metaStarter;
+
         for (let i = 1; i <= TOTAL_ROWS; i++) {
             let rowLine = [];
             rowLine.push(i);
@@ -381,6 +395,14 @@
             const resultText = document.getElementById(`res-${i}`).value.trim();
             rowLine.push(resultText ? `"${resultText}"` : '');
             
+            // Checking for a mid-game relief switch entry
+            const pitchChangeInput = document.getElementById(`pitcher-change-${i}`).value.trim();
+            if (pitchChangeInput !== '') {
+                activePitcher = pitchChangeInput; // Shift tracking focus to the reliever
+            }
+            
+            rowLine.push(`"${activePitcher}"`); // Safely appends active pitcher to the row column
+            
             csvContent += rowLine.join(",") + "\n";
         }
 
@@ -397,23 +419,20 @@
     // Full grid reset
     function clearGrid() {
         if (confirm("Are you sure you want to completely clear the current grid data and setup details?")) {
-            // Reset metadata text inputs
             document.getElementById('game-date').value = '';
             document.getElementById('opponent').value = '';
             document.getElementById('pitcher-name').value = '';
 
             for (let i = 1; i <= TOTAL_ROWS; i++) {
-                // Clear metric selections
                 metrics.forEach(metric => {
                     sessionData[i][metric] = '';
                     document.getElementById(`btn-${i}-${metric}-Y`).classList.remove('active-y');
                     document.getElementById(`btn-${i}-${metric}-N`).classList.remove('active-n');
                 });
                 
-                // Reset text inputs
                 document.getElementById(`res-${i}`).value = '';
+                document.getElementById(`pitcher-change-${i}`).value = '';
                 
-                // Clear visual inning lines
                 sessionData[i].inningBreak = false;
                 document.getElementById(`row-${i}`).classList.remove('inning-break');
                 document.getElementById(`inn-btn-${i}`).classList.remove('active-break');
